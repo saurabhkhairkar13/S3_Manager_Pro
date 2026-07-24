@@ -1,0 +1,5 @@
+boto3>=1.28.0
+customtkinter>=5.2.0
+keyring>=24.0.0
+plyer>=2.1.0
+Pillow>=10.0.0

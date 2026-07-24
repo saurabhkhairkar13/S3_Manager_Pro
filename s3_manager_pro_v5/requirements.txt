@@ -1,0 +1,8 @@
+# Core dependencies
+boto3>=1.28.0
+customtkinter>=5.2.0
+keyring>=24.0.0
+
+# Optional — enhanced features
+plyer>=2.1.0              # System notifications (Windows/Mac/Linux)
+# tkinterdnd2>=0.3.0      # Drag-and-drop support (uncomment if needed)

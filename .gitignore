@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+dist/
+build/
+
+# Runtime files (user-specific)
+*.log
+s3_settings.json
+s3_bookmarks.json
+s3_sync_jobs.json
+s3_profiles.json
+s3_pricing.json
+s3_transfer_state.json
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Virtual environment
+venv/
+.venv/
+env/
