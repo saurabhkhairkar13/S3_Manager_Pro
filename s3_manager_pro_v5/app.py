@@ -237,7 +237,7 @@ class S3ManagerApp:
     # CONNECTION
     # ═══════════════════════════════════════════
     def disconnect(self):
-        """Disconnect from AWS — clear session."""
+        """Disconnect from AWS — clear session but keep bookmarks."""
         self.s3_client = None
         self.transfer_engine = None
         self.header.set_disconnected("Disconnected")
@@ -247,6 +247,8 @@ class S3ManagerApp:
         self.file_table.set_objects([])
         self.breadcrumb.set_path("", "")
         self.progress_bar.set_status("Disconnected — click Connect or open Settings to reconnect")
+        # Re-show bookmarks (they were preserved in bookmark_manager)
+        self.sidebar.set_bookmarks(self.bookmark_manager.bookmarks)
         from s3_manager_pro_v5.ui.toast import show_toast
         show_toast(self.root, "Disconnected from AWS", "info")
 
