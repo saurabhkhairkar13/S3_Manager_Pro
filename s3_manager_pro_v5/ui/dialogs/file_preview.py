@@ -6,8 +6,8 @@ import customtkinter as ctk
 from s3_manager_pro_v5.utils.constants import DARK_THEME, LIGHT_THEME
 from s3_manager_pro_v5.utils.formatting import format_size
 
-# Max size to preview (5 MB for full, 50 MB for partial/text)
-MAX_PREVIEW_SIZE = 5 * 1024 * 1024
+# Max size to preview (15 MB for images, any size for text first 5MB)
+MAX_PREVIEW_SIZE = 15 * 1024 * 1024
 MAX_TEXT_PREVIEW_SIZE = 50 * 1024 * 1024  # Allow text files up to 50 MB (shows first 5 MB)
 
 # File types we can preview
@@ -15,6 +15,8 @@ PREVIEWABLE_TEXT = {".json", ".yaml", ".yml", ".xml", ".txt", ".log", ".md",
                    ".csv", ".tsv", ".py", ".js", ".ts", ".html", ".css",
                    ".sh", ".bat", ".cfg", ".ini", ".conf", ".env", ".sql"}
 PREVIEWABLE_IMAGE = {".png", ".jpg", ".jpeg", ".gif", ".bmp"}
+BROWSER_OPEN_TYPES = {".mp4", ".mov", ".avi", ".mkv", ".webm", ".mp3", ".wav",
+                      ".ogg", ".flac", ".m4a", ".pdf", ".docx", ".xlsx", ".pptx"}
 
 
 class FilePreviewPanel:
@@ -63,6 +65,11 @@ class FilePreviewPanel:
         # Check if previewable
         is_text = ext in PREVIEWABLE_TEXT or ext in (".csv", ".tsv", ".sql")
 
+        # Videos/Audio/PDF — always open directly in browser (any size)
+        if ext in BROWSER_OPEN_TYPES:
+            self._open_directly_in_browser(obj, ext, colors)
+            return
+
         if ext in PREVIEWABLE_IMAGE and obj.size > MAX_PREVIEW_SIZE:
             ctk.CTkLabel(self.content,
                          text=f"⚠ Image too large to preview ({format_size(obj.size)})\n"
@@ -91,6 +98,57 @@ class FilePreviewPanel:
             else:
                 # Unsupported type — offer "Open in Browser" option
                 self._show_open_in_browser(ext, obj, colors)
+
+    def _open_directly_in_browser(self, obj, ext: str, colors: dict):
+        """Immediately generate presigned URL and open in browser for video/audio/pdf."""
+        import webbrowser
+
+        media_video = {".mp4", ".mov", ".avi", ".mkv", ".webm"}
+        media_audio = {".mp3", ".wav", ".ogg", ".flac", ".m4a"}
+
+        if ext in media_video:
+            icon, file_type = "🎬", "Video"
+        elif ext in media_audio:
+            icon, file_type = "🎵", "Audio"
+        else:
+            icon, file_type = "📄", "Document"
+
+        ctk.CTkLabel(self.content, text=icon,
+                     font=ctk.CTkFont(size=40)).pack(pady=(30, 10))
+
+        ctk.CTkLabel(self.content,
+                     text=f"Opening {file_type} in browser...",
+                     font=ctk.CTkFont(size=13),
+                     text_color=colors["text_primary"]).pack(pady=(0, 10))
+
+        # Generate URL and open immediately
+        url = self.app.s3_client.generate_presigned_url(self.bucket, obj.key, expires_in=3600)
+        if url:
+            webbrowser.open(url)
+            ctk.CTkLabel(self.content,
+                         text="Opened in browser (link valid for 1 hour)",
+                         font=ctk.CTkFont(size=11),
+                         text_color=colors["success"]).pack(pady=(10, 0))
+
+            # Show URL for copy
+            url_box = ctk.CTkEntry(self.content, width=500, height=28)
+            url_box.insert(0, url)
+            url_box.configure(state="readonly")
+            url_box.pack(pady=(10, 5))
+
+            def copy_url():
+                self.win.clipboard_clear()
+                self.win.clipboard_append(url)
+
+            ctk.CTkButton(self.content, text="Copy URL", width=90, height=28,
+                          corner_radius=6, fg_color=colors["primary"],
+                          hover_color=colors["primary_hover"],
+                          command=copy_url).pack(pady=5)
+        else:
+            ctk.CTkLabel(self.content,
+                         text="Failed to generate URL",
+                         font=ctk.CTkFont(size=12),
+                         text_color="#f44336").pack(pady=10)
 
     def _show_open_in_browser(self, ext: str, obj, colors: dict):
         """Show 'Open in Browser' option for unsupported file types (video, audio, pdf, etc)."""
@@ -270,17 +328,18 @@ class FilePreviewPanel:
             from PIL import ImageTk
             import tkinter as tk
 
-            # Convert to PhotoImage
+            # Convert to PhotoImage — keep reference to prevent garbage collection
             self._photo = ImageTk.PhotoImage(image)
 
-            canvas = tk.Canvas(self.content, width=image.width, height=image.height,
-                               bg=colors["bg"], highlightthickness=0)
-            canvas.pack(pady=10)
-            canvas.create_image(image.width // 2, image.height // 2, image=self._photo)
+            # Use a Label to display image (more reliable than Canvas)
+            img_label = tk.Label(self.content, image=self._photo,
+                                 bg=colors["bg"], borderwidth=0)
+            img_label.image = self._photo  # Extra reference to prevent GC
+            img_label.pack(pady=10, expand=True)
 
             ctk.CTkLabel(self.content,
-                         text=f"Original: {orig_size[0]}×{orig_size[1]} │ "
-                              f"Displayed: {image.width}×{image.height}",
+                         text=f"Original: {orig_size[0]}x{orig_size[1]}  |  "
+                              f"Displayed: {image.width}x{image.height}",
                          font=ctk.CTkFont(size=10),
                          text_color=colors["text_secondary"]).pack()
         except Exception as e:
